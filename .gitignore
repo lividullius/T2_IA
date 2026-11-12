@@ -1,0 +1,26 @@
+# Ambiente Python
+venv/
+env/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Modelos treinados (arquivos binários grandes)
+*.pkl
+*.joblib
+*.h5
+modelos/**/*.pkl
+
+# Configurações de IDE
+.vscode/
+.idea/
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# T2: logs gerados pelo treino (o modelo final em modelos/*.json entra no repositório)
+logs/*.csv
