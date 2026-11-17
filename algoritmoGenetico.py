@@ -5,7 +5,7 @@ Fases do treino: Médio -> Misto -> Difícil.
 Para quando chega a 150 no Difícil, quando não melhora mais ou no limite
 de gerações.
 
-Rodar:  python3 ag.py [--geracoes N] [--populacao N] [--seed S]
+Rodar:  python3 algoritmoGenetico.py [--geracoes N] [--populacao N] [--seed S]
 """
 
 import argparse
@@ -16,7 +16,7 @@ from pathlib import Path
 import config
 from aptidao import FASES, aptidao
 from minimax import DIFICIL
-from rede import Rede, n_genes, salvar_pesos
+from redeMlp import Rede, n_genes, salvar_pesos
 
 
 def populacao_inicial(n, n_genes, rng):

@@ -11,7 +11,7 @@ Detalhes:
   tabuleiro é calculado uma vez só. Isso deixa a avaliação do AG rápida.
 - Vitórias mais rápidas (e derrotas mais demoradas) valem mais.
 
-TODO: conferir com a versão do Minimax dada em aula e ajustar nomes, se
+TO DO: conferir com a versão do Minimax dada em aula e ajustar nomes, se
 preciso, para a apresentação.
 """
 

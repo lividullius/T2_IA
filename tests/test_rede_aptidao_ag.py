@@ -9,14 +9,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import ag  # noqa: E402
+import algoritmoGenetico  # noqa: E402
 import config  # noqa: E402
 from aptidao import (  # noqa: E402
     aptidao, aptidao_dificil, aptidao_medio, jogar_partida,
 )
 from jogo import O, X, casas_livres, novo_tabuleiro  # noqa: E402
 from minimax import DIFICIL, MEDIO, melhor_jogada_minimax  # noqa: E402
-from rede import Rede, carregar_rede, n_genes, salvar_pesos  # noqa: E402
+from redeMlp import Rede, carregar_rede, n_genes, salvar_pesos  # noqa: E402
 
 
 class PrimeiraLivre:
@@ -128,7 +128,7 @@ class TestAptidao(unittest.TestCase):
 class TestAG(unittest.TestCase):
     def setUp(self):
         self.rng = random.Random(0)
-        self.pop = ag.populacao_inicial(10, 180, self.rng)
+        self.pop = algoritmoGenetico.populacao_inicial(10, 180, self.rng)
 
     def test_populacao(self):
         self.assertEqual(len(self.pop), 10)
@@ -137,31 +137,31 @@ class TestAG(unittest.TestCase):
 
     def test_torneio_com_todos_pega_o_melhor(self):
         aptidoes = list(range(10))
-        self.assertIs(ag.torneio(self.pop, aptidoes, self.rng, k=10),
+        self.assertIs(algoritmoGenetico.torneio(self.pop, aptidoes, self.rng, k=10),
                       self.pop[9])
 
     def test_crossover(self):
         pai, mae = self.pop[0], self.pop[1]
         for tipo in ("aritmetico", "blx"):
-            f1, f2 = ag.crossover(pai, mae, self.rng, tipo)
+            f1, f2 = algoritmoGenetico.crossover(pai, mae, self.rng, tipo)
             self.assertEqual(len(f1), 180)
             self.assertEqual(len(f2), 180)
             self.assertTrue(all(-1 <= g <= 1 for g in f1 + f2))
-        f1, _ = ag.crossover(pai, mae, self.rng, "aritmetico")
+        f1, _ = algoritmoGenetico.crossover(pai, mae, self.rng, "aritmetico")
         for g, a, b in zip(f1, pai, mae):
             self.assertTrue(min(a, b) - 1e-12 <= g <= max(a, b) + 1e-12)
 
     def test_mutacao_nao_toca_elite(self):
         elite = list(self.pop[0])
         antes = [list(linha) for linha in self.pop]
-        feitas = ag.mutacao(self.pop, self.rng, taxa=0.5, protegidas=1)
+        feitas = algoritmoGenetico.mutacao(self.pop, self.rng, taxa=0.5, protegidas=1)
         self.assertGreater(feitas, 0)
         self.assertEqual(self.pop[0], elite)
         self.assertNotEqual(self.pop[1:], antes[1:])
 
     def test_elitismo(self):
         aptidoes = [float(i) for i in range(10)]
-        nova = ag.proxima_geracao(self.pop, aptidoes, self.rng)
+        nova = algoritmoGenetico.proxima_geracao(self.pop, aptidoes, self.rng)
         self.assertEqual(len(nova), 10)
         self.assertEqual(nova[0], self.pop[9])
 
@@ -170,7 +170,7 @@ class TestAG(unittest.TestCase):
             log = Path(pasta) / "log.csv"
             modelo = Path(pasta) / "rede.json"
             vistas = []
-            fim = ag.treinar(random.Random(1), vistas.append, n=8,
+            fim = algoritmoGenetico.treinar(random.Random(1), vistas.append, n=8,
                              max_geracoes=3, caminho_log=log,
                              caminho_modelo=modelo)
             self.assertEqual(len(vistas), 3)
