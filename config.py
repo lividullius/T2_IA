@@ -18,8 +18,7 @@ TAMANHO_POPULACAO = 100   # N
 ELITISMO = 1
 TAMANHO_TORNEIO = 2
 TAXA_MUTACAO = 0.02       # fração dos genes da população por geração
-CROSSOVER = "aritmetico"  # "aritmetico" ou "blx"; nos testes o aritmético
-                          # chegou a 150 e o BLX não (conferir o do Moodle)
+CROSSOVER = "aritmetico"  # aprovado pela professora; "blx" fica para comparar
 BLX_ALFA = 0.5
 MAX_GERACOES = 600
 PACIENCIA = 100           # gerações sem melhora na última fase -> convergência
