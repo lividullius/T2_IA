@@ -1,4 +1,4 @@
-"""Parâmetros do T2 (valores iniciais do plano; ajustar e registrar no ppt)."""
+"""Parâmetros do T2 (valores iniciais do plano"""
 
 from pathlib import Path
 
@@ -18,7 +18,7 @@ TAMANHO_POPULACAO = 100   # N
 ELITISMO = 1
 TAMANHO_TORNEIO = 2
 TAXA_MUTACAO = 0.02       # fração dos genes da população por geração
-CROSSOVER = "aritmetico"  # aprovado pela professora; "blx" fica para comparar
+CROSSOVER = "aritmetico" 
 BLX_ALFA = 0.5
 MAX_GERACOES = 600
 PACIENCIA = 100           # gerações sem melhora na última fase -> convergência
@@ -36,7 +36,7 @@ APTIDAO_IDEAL_DIFICIL = 150  # empatar as 2 partidas contra o Difícil
 APTIDAO_MAX_PARTIDA = 100    # melhor partida possível (5 jogadas + vitória),
                              # usado para normalizar o Médio na fase Mista
 
-# Arquivos (relativos à pasta do projeto, de onde quer que se rode)
+# Arquivos 
 RAIZ = Path(__file__).resolve().parent
 PASTA_LOGS = str(RAIZ / "logs")
 PASTA_MODELOS = str(RAIZ / "modelos")

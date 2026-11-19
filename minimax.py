@@ -11,7 +11,6 @@ Detalhes:
   tabuleiro é calculado uma vez só. Isso deixa a avaliação do AG rápida.
 - Vitórias mais rápidas (e derrotas mais demoradas) valem mais.
 
-A professora confirmou que não precisa ser igual ao Minimax da aula.
 """
 
 import random
