@@ -19,6 +19,41 @@ gerações e por convergência. Todas usam população 200 e elitismo 4.
 | FIEL_CB | FIEL_C + bônus de +10 por jogada ótima | 70% / 50% / 44% | 78% / 68% / 55% |
 | **FIEL_EB (escolhida)** | inválida encerra + bônus de +10 por jogada ótima | **76% / 61% / 55%** | **90% / 81% / 52%** |
 
+## Experimentos com a configuração escolhida
+
+Cada experimento muda **uma coisa** na FIEL_EB e roda com 2 seeds (42 e 1).
+Os números são **% de partidas sem derrota**, no formato seed 42 / seed 1.
+
+| Experimento | Contra o Difícil | Contra o Médio | Conclusão |
+|---|---|---|---|
+| FIEL_EB (referência) | 52% / 50% | 55% / 38% | — |
+| Sem fases (só 30/70 desde o início) | 55% / 52% | 41% / 39% | fases quase não mudam o resultado |
+| População 100 (em vez de 200) | 51% / 50% | 37% / 35% | parecido, um pouco pior no Médio; treina 35% mais rápido |
+| Mutação 1% (em vez de 2%) | 51% / **0%** | 44% / 34% | instável: falhou em uma seed |
+| Mutação 5% (em vez de 2%) | **1%** / 50% | 31% / 38% | instável: falhou em uma seed |
+| Oculta logística (em vez de tanh) | 14% / 19% | 40% / 38% | **tanh é bem melhor** (entradas em [−1, 1]) |
+
+**Dependência da seed** (FIEL_EB, seeds 42 / 1 / 2 / 3):
+
+| | Seed 42 | Seed 1 | Seed 2 | Seed 3 |
+|---|---|---|---|---|
+| Contra o Difícil | 52% | 50% | 51% | 30% |
+| Contra o Médio | 55% | 38% | 39% | 48% |
+
+3 das 4 seeds chegam a cerca de 50% contra o Difícil. No treino antigo, a
+seed 42 parava cedo ("para em 100"), enquanto outras seeds chegavam a 150.
+
+**Por que cerca de 50% contra o Difícil?** Separando por quem começa
+(modelo escolhido, 200 partidas de cada):
+
+| | Rede começa | Minimax começa |
+|---|---|---|
+| Difícil (V / E / D) | 0 / 200 / 0 | 0 / 12 / 188 |
+| Médio (V / E / D) | 107 / 54 / 39 | 32 / 19 / 149 |
+
+A rede aprendeu a jogar começando (empata sempre com o Difícil), mas
+jogando em segundo ela ainda perde quase sempre.
+
 ## Outras que testamos (fogem do que foi visto em aula)
 
 Mudam pelo menos uma destas coisas: 27 ou 18 neurônios ocultos, mutação
@@ -45,5 +80,9 @@ convergência.
 - **O que fez diferença:** população maior com elitismo 4, o bônus por
   jogada ótima (o Minimax "ensinando" a cada jogada) e a parada por
   convergência usando média móvel.
-- **Treino a treino, o resultado varia bastante**, porque a aptidão é
-  medida em partidas aleatórias.
+- **Treino a treino, o resultado varia**, porque a aptidão é medida em
+  partidas aleatórias. Mesmo assim, 3 de 4 seeds chegam ao mesmo nível.
+- **Fases, população e ativação:** com ou sem fases dá quase no mesmo;
+  população 100 fica perto da 200; tanh é bem melhor que logística na
+  camada oculta; mutação de 2% é a mais estável.
+- **Ponto fraco que sobra:** jogar em segundo.
