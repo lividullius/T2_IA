@@ -5,6 +5,7 @@ import random
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -91,9 +92,29 @@ class TestRede(unittest.TestCase):
 
 
 class TestAptidao(unittest.TestCase):
-    def test_perfeita_atinge_ideal(self):
-        self.assertEqual(aptidao_dificil(Perfeita(), random.Random(0)),
-                         config.APTIDAO_IDEAL_DIFICIL)
+    # testes da pontuação básica, sem o bônus por jogada ótima
+    def setUp(self):
+        patcher = mock.patch.multiple(config, PONTOS_JOGADA_OTIMA=0,
+                                      INVALIDA_ENCERRA=True)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_bonus_jogada_otima(self):
+        config.PONTOS_JOGADA_OTIMA = 10
+        # Perfeita: toda jogada é ótima -> +10 por jogada além dos 75
+        self.assertEqual(aptidao_dificil(Perfeita(), random.Random(0), k=10), 120)
+
+    def test_invalida_sem_encerrar(self):
+        config.INVALIDA_ENCERRA = False
+        p = jogar_partida(SempreCasa0(), DIFICIL, True, random.Random(0))
+        self.assertIn(p["resultado"], ("vitoria", "empate", "derrota"))
+        self.assertGreater(p["jogadas_invalidas"], 1)
+        self.assertEqual(p["pontos"],
+                         10 * p["jogadas_validas"] - 20 * p["jogadas_invalidas"]
+                         + {"vitoria": 50, "empate": 30, "derrota": 0}[p["resultado"]])
+    def test_perfeita_empata_tudo_no_dificil(self):
+        # empate começando = 5 jogadas + 30 = 80; empate sendo O = 4 + 30 = 70
+        self.assertEqual(aptidao_dificil(Perfeita(), random.Random(0), k=10), 75)
 
     def test_invalida_tarde_vale_mais(self):
         # Rede começa: casa 0 é válida na 1ª jogada e inválida na 2ª.
@@ -119,10 +140,15 @@ class TestAptidao(unittest.TestCase):
         self.assertEqual(b["simbolo_rede"], O)
         self.assertEqual(b["historico"][0]["jogador"], "minimax")
 
-    def test_misto_da_ideal_para_perfeita_no_dificil(self):
-        valor = aptidao(Perfeita(), "misto", random.Random(0))
-        self.assertGreater(valor, 0)
-        self.assertLessEqual(valor, config.APTIDAO_IDEAL_DIFICIL)
+    def test_mistura_de_modos(self):
+        # Perfeita nunca perde: a média fica entre empatar tudo (75) e o
+        # máximo de uma partida (100)
+        for fase in config.FASES:
+            valor = aptidao(Perfeita(), fase, random.Random(0))
+            self.assertGreaterEqual(valor, 75)
+            self.assertLessEqual(valor, 100)
+        with self.assertRaises(ValueError):
+            aptidao(Perfeita(), 1.5, random.Random(0))
 
 
 class TestAG(unittest.TestCase):

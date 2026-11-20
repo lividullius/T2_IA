@@ -4,9 +4,11 @@
 - Médio:   em cada jogada sorteia; 50% Minimax, 50% casa livre aleatória.
 
 Detalhes:
-- Desempate determinístico: entre jogadas de mesmo valor, fica a de menor
-  índice. Assim o Difícil sempre joga igual no mesmo tabuleiro, e 1 partida
-  basta para avaliar uma rede contra ele.
+- Desempate aleatório: quando várias casas têm o mesmo melhor valor, o
+  Minimax sorteia uma delas. Continua sendo Minimax (toda jogada é ótima),
+  mas o Difícil não joga sempre a mesma partida; assim a rede não consegue
+  só decorar 2 partidas e precisa de várias para ser avaliada.
+  `melhor_jogada_minimax` mantém o desempate pelo menor índice (determinístico).
 - Memoização (lru_cache): o jogo da velha tem poucos estados, então cada
   tabuleiro é calculado uma vez só. Isso deixa a avaliação do AG rápida.
 - Vitórias mais rápidas (e derrotas mais demoradas) valem mais.
@@ -51,10 +53,44 @@ def melhor_jogada_minimax(tab, vez):
     return _avaliar(tuple(tab), vez)[1]
 
 
+def melhores_jogadas(tab, vez):
+    """Todas as casas com o melhor valor Minimax exato para `vez`
+    (inclui preferir vitória mais rápida / derrota mais demorada)."""
+    tab = tuple(tab)
+    valores = {casa: -_avaliar(tab[:casa] + (vez,) + tab[casa + 1:], -vez)[0]
+               for casa in casas_livres(tab)}
+    if not valores:
+        return []
+    melhor = max(valores.values())
+    return [casa for casa, valor in valores.items() if valor == melhor]
+
+
+def jogadas_otimas(tab, vez):
+    """Casas que mantêm o melhor resultado possível (vitória, empate ou
+    derrota) para `vez`, com jogo perfeito dos dois lados.
+
+    `melhor_jogada_minimax` devolve só a de menor índice; para medir a
+    acurácia da rede qualquer jogada que não piora o resultado conta.
+    Compara só o resultado (sinal), não a rapidez da vitória.
+    """
+    tab = tuple(tab)
+    valores = {}
+    for casa in casas_livres(tab):
+        v = -_avaliar(tab[:casa] + (vez,) + tab[casa + 1:], -vez)[0]
+        valores[casa] = (v > 0) - (v < 0)
+    if not valores:
+        return []
+    melhor = max(valores.values())
+    return [casa for casa, valor in valores.items() if valor == melhor]
+
+
 def jogada_minimax(tab, vez, modo=DIFICIL, rng=random):
-    """Jogada do Minimax no modo pedido. `rng` permite usar uma seed fixa."""
+    """Jogada do Minimax no modo pedido. `rng` permite usar uma seed fixa.
+
+    Entre jogadas igualmente boas, sorteia uma (desempate aleatório).
+    """
     if modo not in MODOS:
         raise ValueError(f"modo inválido: {modo!r}")
     if modo == MEDIO and rng.random() >= PROB_MINIMAX_MEDIO:
         return rng.choice(casas_livres(tab))
-    return melhor_jogada_minimax(tab, vez)
+    return rng.choice(melhores_jogadas(tab, vez))

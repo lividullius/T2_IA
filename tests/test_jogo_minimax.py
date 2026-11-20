@@ -11,7 +11,9 @@ from jogo import (  # noqa: E402
     EMPATE, LINHAS, O, O_VENCEU, TEM_JOGO, X, X_VENCEU,
     casas_livres, estado, jogada_valida, novo_tabuleiro,
 )
-from minimax import DIFICIL, MEDIO, jogada_minimax, melhor_jogada_minimax  # noqa: E402
+from minimax import (  # noqa: E402
+    DIFICIL, MEDIO, jogada_minimax, melhor_jogada_minimax, melhores_jogadas,
+)
 
 
 def partida(jogador_x, jogador_o):
@@ -61,6 +63,13 @@ class TestMinimax(unittest.TestCase):
                0, O, 0,
                0, 0, 0]
         self.assertEqual(melhor_jogada_minimax(tab, O), 2)
+
+    def test_dificil_desempata_ao_acaso(self):
+        # tabuleiro vazio: todas as casas empatam, o Difícil não joga sempre igual
+        rng = random.Random(0)
+        vistas = {jogada_minimax(novo_tabuleiro(), X, DIFICIL, rng) for _ in range(50)}
+        self.assertGreater(len(vistas), 1)
+        self.assertTrue(vistas <= set(melhores_jogadas(novo_tabuleiro(), X)))
 
     def test_dificil_contra_dificil_empata(self):
         def dificil(t, v):

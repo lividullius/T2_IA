@@ -1,9 +1,10 @@
 """Algoritmo genético que evolui os pesos da rede.
 
 Cada geração: avaliar -> elitismo -> torneio -> crossover -> mutação.
-Fases do treino: Médio -> Misto -> Difícil.
-Para quando chega a 150 no Difícil, quando não melhora mais ou no limite
-de gerações.
+Fases do treino (fração de partidas contra Médio / Difícil):
+70/30 -> 50/50 -> 30/70. Muda de fase quando não melhora mais.
+Para por convergência (sem melhora na última fase) ou pelo limite de
+gerações.
 
 Rodar:  python3 algoritmoGenetico.py [--geracoes N] [--populacao N] [--seed S]
 """
@@ -14,8 +15,7 @@ import random
 from pathlib import Path
 
 import config
-from aptidao import FASES, aptidao
-from minimax import DIFICIL
+from aptidao import FASES, aptidao, nome_fase
 from redeMlp import Rede, n_genes, salvar_pesos
 
 
@@ -117,6 +117,7 @@ def treinar(rng=None, ao_fim_da_geracao=None,
     melhor_da_fase = float("-inf")
     sem_melhora = 0
     geracoes_na_fase = 0
+    ultimas = []  # melhores aptidões recentes (média móvel)
     motivo = "max_geracoes"
 
     arquivo_log = None
@@ -128,15 +129,19 @@ def treinar(rng=None, ao_fim_da_geracao=None,
 
     try:
         for geracao in range(1, max_geracoes + 1):
-            fase = FASES[indice_fase]
-            aptidoes = avaliar_populacao(populacao, fase, rng)
+            fase = nome_fase(FASES[indice_fase])
+            aptidoes = avaliar_populacao(populacao, FASES[indice_fase], rng)
             indice_melhor = max(range(n), key=aptidoes.__getitem__)
             melhor = aptidoes[indice_melhor]
             media = sum(aptidoes) / n
             pior = min(aptidoes)
 
-            if melhor > melhor_da_fase + 1e-9:
-                melhor_da_fase = melhor
+            # convergência pela média móvel da melhor aptidão: as partidas
+            # são aleatórias, então uma geração com sorte não conta sozinha
+            ultimas = (ultimas + [melhor])[-config.JANELA_CONVERGENCIA:]
+            tendencia = sum(ultimas) / len(ultimas)
+            if tendencia > melhor_da_fase + 1e-9:
+                melhor_da_fase = tendencia
                 sem_melhora = 0
             else:
                 sem_melhora += 1
@@ -150,6 +155,7 @@ def treinar(rng=None, ao_fim_da_geracao=None,
             if ao_fim_da_geracao is not None:
                 continuar = ao_fim_da_geracao({
                     "geracao": geracao, "fase": fase,
+                    "indice_fase": indice_fase,
                     "populacao": populacao, "aptidoes": aptidoes,
                     "melhor": melhor, "media": media, "pior": pior,
                     "indice_melhor": indice_melhor,
@@ -161,9 +167,6 @@ def treinar(rng=None, ao_fim_da_geracao=None,
 
             # critérios de parada
             ultima_fase = indice_fase == len(FASES) - 1
-            if fase == DIFICIL and melhor >= config.APTIDAO_IDEAL_DIFICIL:
-                motivo = "aptidao_ideal"
-                break
             if ultima_fase and sem_melhora >= config.PACIENCIA:
                 motivo = "convergencia"
                 break
@@ -176,6 +179,7 @@ def treinar(rng=None, ao_fim_da_geracao=None,
                 # passa para a próxima fase
                 indice_fase += 1
                 melhor_da_fase = float("-inf")
+                ultimas = []
                 sem_melhora = 0
                 geracoes_na_fase = 0
 
@@ -198,7 +202,7 @@ def treinar(rng=None, ao_fim_da_geracao=None,
 
 
 def _imprimir(info):
-    print(f"  ger {info['geracao']:3d}  [{info['fase']:7s}]  "
+    print(f"  ger {info['geracao']:3d}  [{info['fase']}]  "
           f"melhor {info['melhor']:7.2f}  media {info['media']:7.2f}  "
           f"pior {info['pior']:7.2f}")
 
