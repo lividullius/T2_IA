@@ -21,17 +21,17 @@ que varia, perdia 70%.
 6. **Acurácia:** % de jogadas válidas, % de jogadas ótimas e
    vitórias/empates/derrotas.
 
-Topologia (9-9-9), pesos em [−1, 1], mutação por troca e torneio de 2
-continuam como na aula.
+Mantivemos a topologia inicial (9-9-9), pesos em [−1, 1], mutação por
+troca e torneio de 2.
 
 ## Resultado
-O modelo escolhido (FIEL_EB) não perde em 52% das partidas contra o
-Difícil, e em 55% contra o Médio. Testamos também rede maior, mutação
-gaussiana e outras variações, e não fez muita diferença. Os números estão
+O modelo escolhido (Encerra+Bônus) não perde em 52% das partidas contra o
+Difícil, e em 55% contra o Médio. Também testamos mudar a topologia
+inicial (27 e 18 neurônios ocultos), e não fez muita diferença. Os números estão
 em [variantes.md](variantes.md).
 
 ## Para as considerações finais
 - **Positivo:** achamos e corrigimos o sobreajuste sem alterar o Minimax e
-  sem sair do que foi visto em aula.
+  sem precisar mudar a topologia inicial.
 - **Negativo:** sem backpropagation, o AG aprende devagar, e a rede ainda
   perde para o Difícil em quase metade das partidas.
