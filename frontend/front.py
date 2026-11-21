@@ -1,12 +1,9 @@
-"""Front end do T2 (terminal), reaproveitado do T1.
-
-O tabuleiro do T1 continua. Saiu a IA que classificava o estado do jogo
-(agora jogo.estado() decide com ifs) e o jogador aleatório virou o Minimax.
+"""Front end do T2 (terminal).
 
 Modos:
-    1. Humano x Minimax       (pronto)
-    2. Aprendizagem (rede x Minimax, AG passo a passo)   (etapa 6)
-    3. Humano x Rede treinada (com acurácia)             (etapa 6)
+    1. Humano x Minimax
+    2. Aprendizagem (rede x Minimax, AG passo a passo)
+    3. Humano x Rede treinada (com acurácia)
 
 Rodar da pasta do projeto:  python3 frontend/front.py
 """
@@ -18,12 +15,22 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RAIZ))
 
-from jogo import (  # noqa: E402
-    EMPATE, O, TEM_JOGO, X, estado, jogada_valida, novo_tabuleiro, simbolo,
-)
-from minimax import DIFICIL, MEDIO, jogada_minimax  # noqa: E402
+import ia  # noqa: E402
+from aptidao import jogar_partida  # noqa: E402
+from jogo import O, TEM_JOGO, X, estado, simbolo  # noqa: E402
+from redeMlp import Rede  # noqa: E402
 
-NOME_MODO = {MEDIO: "Médio (50% Minimax)", DIFICIL: "Difícil (100% Minimax)"}
+NOME_MODO = {
+    ia.MEDIO: "Médio (50% Minimax)",
+    ia.DIFICIL: "Difícil (100% Minimax)",
+}
+TOP_POPULACAO = 10
+NOME_RESULTADO = {
+    "vitoria": "vitória da rede",
+    "empate": "empate",
+    "derrota": "vitória do Minimax",
+    "invalida": "jogada inválida da rede",
+}
 
 
 def configurar_terminal():
@@ -40,17 +47,37 @@ def perguntar(texto, opcoes):
         print(f"  Escolha uma destas opções: {', '.join(opcoes)}.")
 
 
-# ---------------------------------------------------------------- desenho
+def pedir_inteiro(texto, minimo, maximo, padrao):
+    while True:
+        bruto = input(f"  {texto} [{padrao}]: ").strip()
+        if not bruto:
+            return padrao
+        if bruto.isdigit():
+            valor = int(bruto)
+            if minimo <= valor <= maximo:
+                return valor
+        print(f"  Digite um inteiro entre {minimo} e {maximo}.")
+
 
 def marca(tab, indice):
     return simbolo(tab[indice]) if tab[indice] else str(indice + 1)
 
 
-def placar(v, e, d):
+def placar(v, e, d, quem="você"):
     total = v + e + d
     if total == 0:
-        return "Placar: nenhuma partida ainda."
-    return f"Placar (você): {v} vitória(s), {e} empate(s), {d} derrota(s)."
+        return f"Placar ({quem}): nenhuma partida ainda."
+    return (f"Placar ({quem}): {v} vitória(s), {e} empate(s), "
+            f"{d} derrota(s).")
+
+
+def texto_acuracia(resumo):
+    return (
+        f"Acurácia da rede: {resumo['pct_validas']:.1f}% válidas "
+        f"({resumo['validas']}/{resumo['jogadas']}), "
+        f"{resumo['pct_otimas']:.1f}% ótimas "
+        f"({resumo['otimas']}/{resumo['jogadas']})."
+    )
 
 
 def desenhar(tab, cabecalho, feedback, texto_placar):
@@ -68,7 +95,8 @@ def desenhar(tab, cabecalho, feedback, texto_placar):
     print()
     for linha in feedback:
         print(f"  {linha}")
-    print(f"  {texto_placar}")
+    if texto_placar:
+        print(f"  {texto_placar}")
     print()
 
 
@@ -81,18 +109,14 @@ def pedir_casa(tab):
             print("  Escolha um número de 1 a 9.")
             continue
         casa = int(texto) - 1
-        if not jogada_valida(tab, casa):
+        if not ia.jogada_valida(tab, casa):
             print("  Essa casa já está ocupada.")
             continue
         return casa
 
 
-# ------------------------------------------------------ humano x minimax
-
 def partida_humano_minimax(modo, humano_comeca, pontos, rng):
-    """Quem começa joga de X. Retorna o resultado do ponto de vista do
-    humano ("vitoria", "empate", "derrota") ou None se saiu."""
-    tab = novo_tabuleiro()
+    tab = ia.novo_tabuleiro()
     humano = X if humano_comeca else O
     maquina = -humano
     cabecalho = [
@@ -111,21 +135,15 @@ def partida_humano_minimax(modo, humano_comeca, pontos, rng):
                 return None
             texto = f"Você jogou na casa {casa + 1}."
         else:
-            casa = jogada_minimax(tab, maquina, modo, rng)
+            casa = ia.jogada_minimax(tab, maquina, modo, rng)
             texto = f"Minimax jogou na casa {casa + 1}."
         tab[casa] = vez
         vez = -vez
         if vez == humano or estado(tab) != TEM_JOGO:
             desenhar(tab, cabecalho, [texto], placar(*pontos))
 
-    final = estado(tab)
-    if final == EMPATE:
-        resultado = "empate"
-    elif (final == "X venceu") == (humano == X):
-        resultado = "vitoria"
-    else:
-        resultado = "derrota"
-    print(f"  Fim de jogo: {final}.")
+    resultado = ia.resultado_para(tab, humano)
+    print(f"  Fim de jogo: {estado(tab)}.")
     return resultado
 
 
@@ -134,14 +152,14 @@ def modo_humano_minimax():
     print("  Modo do Minimax")
     print("  1. Médio (50% Minimax, 50% aleatório)")
     print("  2. Difícil (sempre Minimax)")
-    modo = MEDIO if perguntar("Modo (1-2):", ["1", "2"]) == "1" else DIFICIL
+    modo = ia.MEDIO if perguntar("Modo (1-2):", ["1", "2"]) == "1" else ia.DIFICIL
 
     rng = random.Random()
-    pontos = [0, 0, 0]  # vitórias, empates, derrotas do humano
-    humano_comeca = perguntar("Você começa? (s/n):", ["s", "n"]) == "s"
+    pontos = [0, 0, 0]
     indice = {"vitoria": 0, "empate": 1, "derrota": 2}
 
     while True:
+        humano_comeca = perguntar("Você começa? (s/n):", ["s", "n"]) == "s"
         resultado = partida_humano_minimax(modo, humano_comeca, pontos, rng)
         if resultado is None:
             break
@@ -149,24 +167,180 @@ def modo_humano_minimax():
         print(f"  {placar(*pontos)}")
         if perguntar("Outra partida? (s/n):", ["s", "n"]) != "s":
             break
-        humano_comeca = not humano_comeca  # alterna quem começa
     print()
     print(f"  {placar(*pontos)}")
 
 
-# ------------------------------------------------- modos ainda a fazer
+def mostrar_tabela_populacao(aptidoes, indice_melhor, top=TOP_POPULACAO):
+    ordem = sorted(range(len(aptidoes)), key=aptidoes.__getitem__, reverse=True)
+    print(f"  Top {min(top, len(ordem))} da população:")
+    print("    pos  #    aptidão")
+    for pos, i in enumerate(ordem[:top], start=1):
+        marca_melhor = " *" if i == indice_melhor else ""
+        print(f"    {pos:3d}  {i:3d}  {aptidoes[i]:8.2f}{marca_melhor}")
+
+
+def mostrar_partida_melhor(info):
+    pesos = info["populacao"][info["indice_melhor"]]
+    rede = Rede(pesos)
+    partida = jogar_partida(rede, ia.DIFICIL, True, random.Random(info["geracao"]))
+    tab_final = (list(partida["historico"][-1]["tabuleiro"])
+                 if partida["historico"] else ia.novo_tabuleiro())
+    cabecalho = [
+        f"Partida do melhor (geração {info['geracao']})",
+        f"Rede é {simbolo(partida['simbolo_rede'])}     "
+        f"Minimax é {simbolo(-partida['simbolo_rede'])}",
+    ]
+    feedback = [
+        f"Resultado: {NOME_RESULTADO.get(partida['resultado'], partida['resultado'])}.",
+        f"Pontos da partida: {partida['pontos']:.0f} "
+        f"(válidas {partida['jogadas_validas']}, "
+        f"ótimas {partida['jogadas_otimas']}, "
+        f"inválidas {partida['jogadas_invalidas']}).",
+    ]
+    desenhar(tab_final, cabecalho, feedback, "")
+
 
 def modo_aprendizagem():
-    # TODO (etapa 6): chamar ag.treinar(ao_fim_da_geracao=...) mostrando
-    # geração, fase, tabela da população, partida do melhor; Enter = próximo
-    # passo, "r" = rodar direto.
-    print("\n  Modo aprendizagem ainda não implementado (etapas 3-6).")
+    print()
+    print("  Aprendizagem: AG evoluindo a rede contra o Minimax")
+    if ia.modelo_existe():
+        print("  Já existe um modelo em modelos/melhor_rede.json.")
+        if perguntar("Treinar de novo e sobrescrever? (s/n):", ["s", "n"]) != "s":
+            return
+
+    print()
+    print("  Parâmetros (Enter mantém o padrão)")
+    populacao = pedir_inteiro(
+        "Tamanho da população", 4, 500, ia.config.TAMANHO_POPULACAO)
+    geracoes = pedir_inteiro(
+        "Máximo de gerações", 1, 5000, ia.config.MAX_GERACOES)
+    seed = pedir_inteiro("Seed", 0, 2**31 - 1, ia.config.SEED)
+    passo = perguntar("Passo a passo? (s/n):", ["s", "n"]) == "s"
+    mostrar_partida = perguntar(
+        "Mostrar partida do melhor a cada geração? (s/n):", ["s", "n"]) == "s"
+
+    estado_ui = {"correndo": not passo}
+
+    def ao_fim_da_geracao(info):
+        print()
+        print(f"  Geração {info['geracao']}  [{info['fase']}]  "
+              f"sem melhora: {info['sem_melhora']}")
+        print(f"  melhor {info['melhor']:.2f}  "
+              f"média {info['media']:.2f}  "
+              f"pior {info['pior']:.2f}")
+        mostrar_tabela_populacao(info["aptidoes"], info["indice_melhor"])
+        if mostrar_partida:
+            mostrar_partida_melhor(info)
+
+        if estado_ui["correndo"]:
+            return True
+
+        while True:
+            cmd = input(
+                "  Enter = próxima geração | r = rodar direto | q = parar: "
+            ).strip().lower()
+            if cmd == "":
+                return True
+            if cmd == "r":
+                estado_ui["correndo"] = True
+                return True
+            if cmd == "q":
+                return False
+            print("  Use Enter, r ou q.")
+
+    print()
+    print("  Treinando... (Ctrl+C salva o melhor até agora e para)")
+    fim = ia.treinar(
+        ao_fim_da_geracao=ao_fim_da_geracao,
+        populacao=populacao,
+        geracoes=geracoes,
+        seed=seed,
+    )
+    print()
+    print(f"  Parou na geração {fim['geracao']} ({fim['motivo']}), "
+          f"fase {fim['fase']}, melhor aptidão {fim['aptidao']:.2f}.")
+    print(f"  Modelo salvo em {ia.config.ARQUIVO_MELHOR_MODELO}")
+
+
+def partida_humano_rede(humano_comeca, pontos, acc):
+    tab = ia.novo_tabuleiro()
+    humano = X if humano_comeca else O
+    rede_simbolo = -humano
+    cabecalho = [
+        f"Você é {simbolo(humano)}     Rede é {simbolo(rede_simbolo)}",
+    ]
+    vez = X
+    feedback = ["Você começa. Escolha uma casa." if humano_comeca
+                else "A rede começa."]
+    desenhar(tab, cabecalho, feedback,
+             placar(*pontos) + "  " + texto_acuracia(acc.resumo()))
+
+    while estado(tab) == TEM_JOGO:
+        if vez == humano:
+            casa = pedir_casa(tab)
+            if casa is None:
+                return None
+            texto = f"Você jogou na casa {casa + 1}."
+        else:
+            jogada = ia.jogada_rede(tab, rede_simbolo)
+            acc.registrar_jogada(tab, rede_simbolo, jogada["escolhida"])
+            casa = jogada["casa"]
+            if jogada["valida"]:
+                texto = f"Rede jogou na casa {casa + 1}."
+            else:
+                texto = (f"Rede escolheu a casa {jogada['escolhida'] + 1} "
+                         f"(ocupada); jogou em {casa + 1}.")
+        tab[casa] = vez
+        vez = -vez
+        if vez == humano or estado(tab) != TEM_JOGO:
+            desenhar(tab, cabecalho, [texto],
+                     placar(*pontos) + "  " + texto_acuracia(acc.resumo()))
+
+    resultado_humano = ia.resultado_para(tab, humano)
+    resultado_rede = ia.resultado_para(tab, rede_simbolo)
+    acc.registrar_resultado(resultado_rede)
+    print(f"  Fim de jogo: {estado(tab)}.")
+    print(f"  {texto_acuracia(acc.resumo())}")
+    return resultado_humano
 
 
 def modo_humano_rede():
-    # TODO (etapa 6): carregar modelos/melhor_rede.json, jogar contra a rede
-    # e mostrar a acurácia (% de jogadas válidas + placar).
-    print("\n  Modo humano x rede ainda não implementado (etapas 3-6).")
+    print()
+    if not ia.modelo_existe():
+        print("  Nenhum modelo treinado em modelos/melhor_rede.json.")
+        if perguntar("Treinar agora? (s/n):", ["s", "n"]) != "s":
+            return
+        modo_aprendizagem()
+        if not ia.modelo_existe():
+            print("  Treino não gerou modelo; voltando ao menu.")
+            return
+    else:
+        ia.carregar_modelo(recarregar=True)
+
+    pontos = [0, 0, 0]
+    acc = ia.Acuracia()
+    indice = {"vitoria": 0, "empate": 1, "derrota": 2}
+
+    while True:
+        humano_comeca = perguntar("Você começa? (s/n):", ["s", "n"]) == "s"
+        resultado = partida_humano_rede(humano_comeca, pontos, acc)
+        if resultado is None:
+            break
+        pontos[indice[resultado]] += 1
+        print(f"  {placar(*pontos)}")
+        if perguntar("Outra partida? (s/n):", ["s", "n"]) != "s":
+            break
+
+    resumo = acc.resumo()
+    print()
+    print(f"  {placar(*pontos)}")
+    print(f"  {texto_acuracia(resumo)}")
+    if resumo["partidas"]:
+        print(f"  Rede: {resumo['vitoria']} vitória(s), "
+              f"{resumo['empate']} empate(s), "
+              f"{resumo['derrota']} derrota(s) "
+              f"({resumo['pct_sem_derrota']:.1f}% sem derrota).")
 
 
 MENU = (

@@ -127,63 +127,83 @@ def treinar(rng=None, ao_fim_da_geracao=None,
         escritor = csv.writer(arquivo_log)
         escritor.writerow(["geracao", "fase", "melhor", "media", "pior"])
 
+    geracao = 0
+    fase = nome_fase(FASES[0])
+    indice_melhor = 0
+    melhor = float("-inf")
+    avaliacoes = 0
+
     try:
         for geracao in range(1, max_geracoes + 1):
-            fase = nome_fase(FASES[indice_fase])
-            aptidoes = avaliar_populacao(populacao, FASES[indice_fase], rng)
-            indice_melhor = max(range(n), key=aptidoes.__getitem__)
-            melhor = aptidoes[indice_melhor]
-            media = sum(aptidoes) / n
-            pior = min(aptidoes)
+            try:
+                fase = nome_fase(FASES[indice_fase])
+                aptidoes = avaliar_populacao(populacao, FASES[indice_fase], rng)
+                indice_melhor = max(range(n), key=aptidoes.__getitem__)
+                melhor = aptidoes[indice_melhor]
+                media = sum(aptidoes) / n
+                pior = min(aptidoes)
+                avaliacoes += 1
 
-            # convergência pela média móvel da melhor aptidão: as partidas
-            # são aleatórias, então uma geração com sorte não conta sozinha
-            ultimas = (ultimas + [melhor])[-config.JANELA_CONVERGENCIA:]
-            tendencia = sum(ultimas) / len(ultimas)
-            if tendencia > melhor_da_fase + 1e-9:
-                melhor_da_fase = tendencia
-                sem_melhora = 0
-            else:
-                sem_melhora += 1
-            geracoes_na_fase += 1
+                # convergência pela média móvel da melhor aptidão: as partidas
+                # são aleatórias, então uma geração com sorte não conta sozinha
+                ultimas = (ultimas + [melhor])[-config.JANELA_CONVERGENCIA:]
+                tendencia = sum(ultimas) / len(ultimas)
+                if tendencia > melhor_da_fase + 1e-9:
+                    melhor_da_fase = tendencia
+                    sem_melhora = 0
+                else:
+                    sem_melhora += 1
+                geracoes_na_fase += 1
 
-            if arquivo_log:
-                escritor.writerow([geracao, fase, f"{melhor:.4f}",
-                                   f"{media:.4f}", f"{pior:.4f}"])
-                arquivo_log.flush()
+                if arquivo_log:
+                    escritor.writerow([geracao, fase, f"{melhor:.4f}",
+                                       f"{media:.4f}", f"{pior:.4f}"])
+                    arquivo_log.flush()
 
-            if ao_fim_da_geracao is not None:
-                continuar = ao_fim_da_geracao({
-                    "geracao": geracao, "fase": fase,
-                    "indice_fase": indice_fase,
-                    "populacao": populacao, "aptidoes": aptidoes,
-                    "melhor": melhor, "media": media, "pior": pior,
-                    "indice_melhor": indice_melhor,
-                    "sem_melhora": sem_melhora,
-                })
-                if continuar is False:
-                    motivo = "interrompido"
+                if ao_fim_da_geracao is not None:
+                    continuar = ao_fim_da_geracao({
+                        "geracao": geracao, "fase": fase,
+                        "indice_fase": indice_fase,
+                        "populacao": populacao, "aptidoes": aptidoes,
+                        "melhor": melhor, "media": media, "pior": pior,
+                        "indice_melhor": indice_melhor,
+                        "sem_melhora": sem_melhora,
+                    })
+                    if continuar is False:
+                        motivo = "interrompido"
+                        break
+
+                # critérios de parada
+                ultima_fase = indice_fase == len(FASES) - 1
+                if ultima_fase and sem_melhora >= config.PACIENCIA:
+                    motivo = "convergencia"
+                    break
+                if geracao == max_geracoes:
                     break
 
-            # critérios de parada
-            ultima_fase = indice_fase == len(FASES) - 1
-            if ultima_fase and sem_melhora >= config.PACIENCIA:
-                motivo = "convergencia"
-                break
-            if geracao == max_geracoes:
-                break
+                if not ultima_fase and (
+                        sem_melhora >= config.PACIENCIA_FASE
+                        or geracoes_na_fase >= config.MAX_GERACOES_FASE):
+                    # passa para a próxima fase
+                    indice_fase += 1
+                    melhor_da_fase = float("-inf")
+                    ultimas = []
+                    sem_melhora = 0
+                    geracoes_na_fase = 0
 
-            if not ultima_fase and (
-                    sem_melhora >= config.PACIENCIA_FASE
-                    or geracoes_na_fase >= config.MAX_GERACOES_FASE):
-                # passa para a próxima fase
-                indice_fase += 1
-                melhor_da_fase = float("-inf")
-                ultimas = []
-                sem_melhora = 0
-                geracoes_na_fase = 0
-
-            populacao = proxima_geracao(populacao, aptidoes, rng)
+                populacao = proxima_geracao(populacao, aptidoes, rng)
+            except KeyboardInterrupt:
+                motivo = "interrompido"
+                if avaliacoes == 0:
+                    aptidoes = avaliar_populacao(
+                        populacao, FASES[indice_fase], rng)
+                    indice_melhor = max(range(n), key=aptidoes.__getitem__)
+                    melhor = aptidoes[indice_melhor]
+                    fase = nome_fase(FASES[indice_fase])
+                    geracao = 1
+                else:
+                    geracao = avaliacoes
+                break
     finally:
         if arquivo_log:
             arquivo_log.close()
